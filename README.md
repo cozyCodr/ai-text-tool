@@ -23,7 +23,7 @@ npm install ai-text-tool
 In your Editor.js configuration, import and add the tool to the tools section.
 
 ```javascript
-  import AITextTool from '@editorjs/ai-text';
+  import AITextTool from 'ai-text-tool';
 
   const editor = new EditorJS({
     holder: 'editorjs',
