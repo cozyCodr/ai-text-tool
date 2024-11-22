@@ -34,7 +34,6 @@ In your Editor.js configuration, import and add the tool to the tools section.
         config: {
           // Customize the tool's settings here
           apiKey: 'your-api-key',
-          endpoint: 'your-completion-api-endpoint',
           promptPlaceholder: 'Enter a prompt...',
           generatedTextPlaceholder: 'Generated text will appear here...',
         },
@@ -66,14 +65,6 @@ The following configuration options are available for customization:
         <td>
           <code>''</code> (Required)
         </td>
-      </tr>
-      <tr>
-        <td>
-          <code>endpoint</code>
-        </td>
-        <td>The API endpoint for completing the prompt (e.g., OpenAI GPT endpoint)</td>
-        <td>
-          <code>''</code> (Required)</td>
       </tr>
       <tr>
         <td><code>promptPlaceholder</code></td>
