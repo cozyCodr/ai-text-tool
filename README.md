@@ -122,5 +122,3 @@ We welcome contributions to this tool! To contribute:
 #### License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-# ai-text-tool
-# ai-text-tool
