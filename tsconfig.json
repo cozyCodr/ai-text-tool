@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES5", // Output ES5 code for compatibility
+    "module": "ESNext", // Use ES modules
+    "moduleResolution": "Node", // Resolve modules like Node
+    "outDir": "./dist", // Output directory for the compiled JavaScript
+    "strict": true, // Enable strict type checking
+    "esModuleInterop": true, // Enable ES module interop for importing other modules
+    "skipLibCheck": true // Skip type checking of declaration files
+  },
+  "include": ["src/**/*.ts"], // Include all TypeScript files in the src folder
+  "exclude": ["node_modules"]
+}
