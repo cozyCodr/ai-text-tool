@@ -77,52 +77,64 @@ export default class AITextInlineTool implements InlineTool {
   }
 
   renderActions(): HTMLElement {
-    // Create outer container with border (simulates input box border)
+    // Create outer container (vertical layout)
     this.actionsContainer = document.createElement("div");
     this.actionsContainer.style.cssText = `
-      display: flex;
-      align-items: center;
-      padding: 2px;
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      min-width: 300px;
-      max-width: 500px;
-      width: auto;
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      width: min(720px, calc(100vw - 32px)) !important;
+      max-width: calc(100vw - 32px) !important;
+      min-width: 0 !important;
+      overflow: visible !important;
+      gap: 8px !important;
+      box-sizing: border-box !important;
     `;
 
-    // Prompt input (no border to create seamless look)
-    const promptInput = document.createElement("input");
-    promptInput.type = "text";
+    // Prompt textarea (no border/outline)
+    const promptInput = document.createElement("textarea");
     promptInput.placeholder = "What to do? (e.g., summarize, rewrite)";
     promptInput.style.cssText = `
-      flex: 1;
-      padding: 8px 12px;
-      border: none;
-      background: transparent;
-      font-size: 14px;
-      outline: none;
-      min-width: 0;
+      padding: 8px !important;
+      border: none !important;
+      outline: none !important;
+      background: #f5f5f5 !important;
+      border-radius: 6px !important;
+      font-size: 14px !important;
+      width: 100% !important;
+      height: 140px !important;
+      box-sizing: border-box !important;
+      resize: vertical !important;
+      white-space: pre-wrap !important;
+      font-family: inherit !important;
     `;
 
-    // Arrow button (→)
+    // Button container (aligned to the right)
+    const buttonContainer = document.createElement("div");
+    buttonContainer.style.cssText = `
+      display: flex !important;
+      justify-content: flex-end !important;
+      width: 100% !important;
+    `;
+
+    // Arrow button (→) on the right
     const goButton = document.createElement("button");
     goButton.innerHTML = "→";
     goButton.style.cssText = `
-      padding: 8px 12px;
-      border: none;
-      border-radius: 4px;
-      background: #000;
-      color: white;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: background 0.2s;
+      padding: 8px 12px !important;
+      border: none !important;
+      border-radius: 4px !important;
+      background: #000 !important;
+      color: white !important;
+      cursor: pointer !important;
+      font-size: 16px !important;
+      font-weight: bold !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: background 0.2s !important;
     `;
     goButton.onmouseover = () => goButton.style.background = "#333";
     goButton.onmouseout = () => goButton.style.background = "#000";
@@ -134,7 +146,7 @@ export default class AITextInlineTool implements InlineTool {
 
     // Allow Enter key to submit
     promptInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         e.stopPropagation();
         goButton.click();
@@ -142,8 +154,9 @@ export default class AITextInlineTool implements InlineTool {
     });
 
     // Assemble container
+    buttonContainer.appendChild(goButton);
     this.actionsContainer.appendChild(promptInput);
-    this.actionsContainer.appendChild(goButton);
+    this.actionsContainer.appendChild(buttonContainer);
 
     // Auto-focus the input
     setTimeout(() => promptInput.focus(), 0);
@@ -163,14 +176,27 @@ export default class AITextInlineTool implements InlineTool {
 
     this.isProcessing = true;
 
-    // Hide the actions toolbar
-    if (this.actionsContainer && this.actionsContainer.parentNode) {
-      this.actionsContainer.parentNode.removeChild(this.actionsContainer);
-      this.actionsContainer = null;
+    // Close the inline toolbar by simulating a click outside
+    // This removes the entire EditorJS inline toolbar container
+    const editorElement = document.querySelector('.codex-editor');
+    if (editorElement) {
+      // Trigger a click on the editor to close the toolbar
+      (editorElement as HTMLElement).click();
     }
+
+    // Small delay to ensure toolbar is closed
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     // Get surrounding context
     const context = this.getSurroundingContext(range);
+
+    // Create a loading spinner
+    const loadingSpinner = document.createElement("span");
+    loadingSpinner.className = "cdx-ai-text-loader";
+    loadingSpinner.style.cssText = `
+      margin-right: 4px;
+      display: inline-block;
+    `;
 
     // Create preview span WITHOUT highlight initially (no background)
     this.previewSpan = document.createElement("span");
@@ -181,12 +207,18 @@ export default class AITextInlineTool implements InlineTool {
       transition: background-color 0.3s;
     `;
 
-    // Replace selected text with preview span (text still visible)
+    // Replace selected text with: [spinner][preview span]
     range.deleteContents();
     range.insertNode(this.previewSpan);
+    this.previewSpan.parentNode?.insertBefore(loadingSpinner, this.previewSpan);
 
     // Generate with streaming
     await this.generateTextWithStreaming(selectedText, userPrompt, context, this.previewSpan);
+
+    // Remove the loading spinner
+    if (loadingSpinner.parentNode) {
+      loadingSpinner.parentNode.removeChild(loadingSpinner);
+    }
 
     // Add highlight ONLY after generation completes
     this.previewSpan.style.backgroundColor = "#ADD8E6";
@@ -264,45 +296,45 @@ IMPORTANT: Provide ONLY the transformed text as your response. Do not use any ma
     this.controlsContainer = document.createElement("div");
     this.controlsContainer.style.cssText = `
       display: inline-flex;
-      gap: 4px;
+      gap: 8px;
       margin-left: 8px;
       vertical-align: middle;
     `;
 
-    // Reject button (×)
+    // Reject button (×) - red, no background/border
     const rejectButton = document.createElement("button");
     rejectButton.innerHTML = "×";
     rejectButton.title = "Reject";
     rejectButton.style.cssText = `
-      padding: 2px 8px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      background: white;
+      padding: 0;
+      border: none;
+      background: transparent;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 20px;
       font-weight: bold;
-      color: #666;
+      color: #dc3545;
+      transition: opacity 0.2s;
     `;
-    rejectButton.onmouseover = () => rejectButton.style.background = "#f5f5f5";
-    rejectButton.onmouseout = () => rejectButton.style.background = "white";
+    rejectButton.onmouseover = () => rejectButton.style.opacity = "0.7";
+    rejectButton.onmouseout = () => rejectButton.style.opacity = "1";
     rejectButton.onclick = () => this.rejectChange(previewSpan);
 
-    // Accept button (✓)
+    // Accept button (✓) - green, no background/border
     const acceptButton = document.createElement("button");
     acceptButton.innerHTML = "✓";
     acceptButton.title = "Accept";
     acceptButton.style.cssText = `
-      padding: 2px 8px;
-      border: 1px solid #4caf50;
-      border-radius: 4px;
-      background: #4caf50;
+      padding: 0;
+      border: none;
+      background: transparent;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 20px;
       font-weight: bold;
-      color: white;
+      color: #28a745;
+      transition: opacity 0.2s;
     `;
-    acceptButton.onmouseover = () => acceptButton.style.background = "#45a049";
-    acceptButton.onmouseout = () => acceptButton.style.background = "#4caf50";
+    acceptButton.onmouseover = () => acceptButton.style.opacity = "0.7";
+    acceptButton.onmouseout = () => acceptButton.style.opacity = "1";
     acceptButton.onclick = () => this.acceptChange(previewSpan);
 
     // Add buttons to container
