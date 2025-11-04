@@ -13,8 +13,14 @@ export default class AITextInlineTool implements InlineTool {
   private _openai: OpenAI;
   private _maxTokens: number;
   private tag: string = "SPAN";
-  private promptOverlay: HTMLDivElement | null = null;
   private isProcessing: boolean = false;
+  private previewSpan: HTMLSpanElement | null = null;
+  private originalText: string = "";
+  private controlsContainer: HTMLDivElement | null = null;
+  private currentRange: Range | null = null;
+  private currentSelectedText: string = "";
+  private actionsContainer: HTMLDivElement | null = null;
+  private outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
   static get isInline(): boolean {
     return true;
@@ -42,10 +48,10 @@ export default class AITextInlineTool implements InlineTool {
   render(): HTMLElement {
     this.button = document.createElement("button");
     this.button.type = "button";
-    this.button.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>`;
+    this.button.innerHTML = "Ai";
     this.button.classList.add("ce-inline-tool");
+    this.button.style.fontWeight = "bold";
+    this.button.style.fontSize = "14px";
     this.button.title = "AI Transform";
 
     return this.button;
@@ -60,125 +66,95 @@ export default class AITextInlineTool implements InlineTool {
       return;
     }
 
-    // Store the range for later use
-    const storedRange = range.cloneRange();
-
-    // Show prompt overlay
-    this.showPromptOverlay(selectedText, storedRange);
+    // Store the range and original text
+    this.originalText = selectedText;
+    this.currentRange = range.cloneRange();
+    this.currentSelectedText = selectedText;
   }
 
   checkState(selection: Selection): boolean {
-    return false; // Always show as inactive since we don't wrap text until after generation
+    return false;
   }
 
-  private showPromptOverlay(selectedText: string, range: Range): void {
-    // Remove any existing overlay
-    this.removePromptOverlay();
-
-    // Create overlay container
-    this.promptOverlay = document.createElement("div");
-    this.promptOverlay.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+  renderActions(): HTMLElement {
+    // Create outer container with border (simulates input box border)
+    this.actionsContainer = document.createElement("div");
+    this.actionsContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      padding: 2px;
       background: white;
       border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
-      min-width: 400px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      min-width: 300px;
       max-width: 500px;
+      width: auto;
     `;
 
-    // Selected text preview
-    const preview = document.createElement("div");
-    preview.style.cssText = `
-      background: #f5f5f5;
-      padding: 8px;
-      border-radius: 4px;
-      margin-bottom: 12px;
-      font-size: 14px;
-      color: #666;
-      max-height: 100px;
-      overflow-y: auto;
-    `;
-    preview.textContent = `"${selectedText}"`;
-
-    // Prompt input
+    // Prompt input (no border to create seamless look)
     const promptInput = document.createElement("input");
     promptInput.type = "text";
-    promptInput.placeholder = "What would you like to do? (e.g., summarize, rewrite, expand)";
+    promptInput.placeholder = "What to do? (e.g., summarize, rewrite)";
     promptInput.style.cssText = `
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      margin-bottom: 12px;
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
       font-size: 14px;
       outline: none;
+      min-width: 0;
     `;
 
-    // Button container
-    const buttonContainer = document.createElement("div");
-    buttonContainer.style.cssText = `
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    `;
-
-    // Cancel button
-    const cancelButton = document.createElement("button");
-    cancelButton.textContent = "Cancel";
-    cancelButton.style.cssText = `
-      padding: 8px 16px;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
-      background: white;
-      cursor: pointer;
-      font-size: 14px;
-    `;
-    cancelButton.onclick = () => this.removePromptOverlay();
-
-    // Generate button
-    const generateButton = document.createElement("button");
-    generateButton.textContent = "Generate";
-    generateButton.style.cssText = `
-      padding: 8px 16px;
+    // Arrow button (→)
+    const goButton = document.createElement("button");
+    goButton.innerHTML = "→";
+    goButton.style.cssText = `
+      padding: 8px 12px;
       border: none;
       border-radius: 4px;
       background: #000;
       color: white;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
     `;
-    generateButton.onclick = () => this.handleGenerate(selectedText, promptInput.value, range, generateButton);
+    goButton.onmouseover = () => goButton.style.background = "#333";
+    goButton.onmouseout = () => goButton.style.background = "#000";
+    goButton.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleGenerate(this.currentSelectedText, promptInput.value, this.currentRange!);
+    };
 
-    // Allow Enter key to generate
+    // Allow Enter key to submit
     promptInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        generateButton.click();
+        e.stopPropagation();
+        goButton.click();
       }
     });
 
-    // Assemble overlay
-    buttonContainer.appendChild(cancelButton);
-    buttonContainer.appendChild(generateButton);
-    this.promptOverlay.appendChild(preview);
-    this.promptOverlay.appendChild(promptInput);
-    this.promptOverlay.appendChild(buttonContainer);
+    // Assemble container
+    this.actionsContainer.appendChild(promptInput);
+    this.actionsContainer.appendChild(goButton);
 
-    document.body.appendChild(this.promptOverlay);
-    promptInput.focus();
+    // Auto-focus the input
+    setTimeout(() => promptInput.focus(), 0);
+
+    return this.actionsContainer;
   }
 
   private async handleGenerate(
     selectedText: string,
     userPrompt: string,
-    range: Range,
-    button: HTMLButtonElement
+    range: Range
   ): Promise<void> {
     if (!userPrompt.trim()) {
       alert("Please enter a prompt");
@@ -186,46 +162,60 @@ export default class AITextInlineTool implements InlineTool {
     }
 
     this.isProcessing = true;
-    button.disabled = true;
-    button.innerHTML = '<div style="width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 0.8s linear infinite;"></div>';
+
+    // Hide the actions toolbar
+    if (this.actionsContainer && this.actionsContainer.parentNode) {
+      this.actionsContainer.parentNode.removeChild(this.actionsContainer);
+      this.actionsContainer = null;
+    }
 
     // Get surrounding context
     const context = this.getSurroundingContext(range);
 
-    // Generate AI response
-    const generatedText = await this.generateText(selectedText, userPrompt, context);
+    // Create preview span WITHOUT highlight initially (no background)
+    this.previewSpan = document.createElement("span");
+    this.previewSpan.textContent = selectedText; // Keep original text visible
+    this.previewSpan.style.cssText = `
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: background-color 0.3s;
+    `;
 
-    if (generatedText && !generatedText.startsWith("Error:")) {
-      this.showAcceptRejectUI(generatedText, selectedText, range);
-    } else {
-      alert(generatedText || "Failed to generate text");
-      this.removePromptOverlay();
-    }
+    // Replace selected text with preview span (text still visible)
+    range.deleteContents();
+    range.insertNode(this.previewSpan);
+
+    // Generate with streaming
+    await this.generateTextWithStreaming(selectedText, userPrompt, context, this.previewSpan);
+
+    // Add highlight ONLY after generation completes
+    this.previewSpan.style.backgroundColor = "#ADD8E6";
+
+    // Show accept/reject controls below the highlighted text
+    this.showAcceptRejectControls(this.previewSpan, range);
 
     this.isProcessing = false;
   }
 
   private getSurroundingContext(range: Range): string {
-    // Get the text content of the entire block
     const blockElement = range.commonAncestorContainer.parentElement?.closest('[data-block]');
-
     if (blockElement) {
       return blockElement.textContent || "";
     }
-
-    // Fallback: get parent element text
     const parentElement = range.commonAncestorContainer.parentElement;
     return parentElement?.textContent || "";
   }
 
-  private async generateText(
+  private async generateTextWithStreaming(
     selectedText: string,
     userPrompt: string,
-    context: string
-  ): Promise<string> {
+    context: string,
+    outputElement: HTMLSpanElement
+  ): Promise<void> {
     try {
       if (!this._apiKey) {
-        return "Error: No API key configured.";
+        outputElement.textContent = "Error: No API key configured.";
+        return;
       }
 
       const systemMessage = `You are a helpful writing assistant. The user has selected some text and wants you to transform it.
@@ -236,7 +226,7 @@ Selected text: "${selectedText}"
 
 User request: ${userPrompt}
 
-Please provide ONLY the transformed text as your response, without any explanations or additional formatting.`;
+IMPORTANT: Provide ONLY the transformed text as your response. Do not use any markdown formatting (no asterisks, underscores, backticks, etc.). Do not add explanations or additional text. Output plain text only.`;
 
       const stream = await this._openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -253,147 +243,201 @@ Please provide ONLY the transformed text as your response, without any explanati
         const content = chunk.choices[0]?.delta?.content || "";
         if (content) {
           fullText += content;
+          outputElement.textContent = fullText;
+
+          // Small delay for smooth streaming effect
+          await new Promise(resolve => setTimeout(resolve, 20));
         }
       }
 
-      return fullText.trim();
+      if (!fullText.trim()) {
+        outputElement.textContent = "Error: No content received from AI.";
+      }
     } catch (error) {
       console.error("Error generating text:", error);
-      return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+      outputElement.textContent = `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
     }
   }
 
-  private showAcceptRejectUI(generatedText: string, originalText: string, range: Range): void {
-    this.removePromptOverlay();
-
-    // Create new overlay for accept/reject
-    this.promptOverlay = document.createElement("div");
-    this.promptOverlay.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
-      min-width: 400px;
-      max-width: 600px;
+  private showAcceptRejectControls(previewSpan: HTMLSpanElement, range: Range): void {
+    // Create controls container
+    this.controlsContainer = document.createElement("div");
+    this.controlsContainer.style.cssText = `
+      display: inline-flex;
+      gap: 4px;
+      margin-left: 8px;
+      vertical-align: middle;
     `;
 
-    // Original text
-    const originalSection = document.createElement("div");
-    originalSection.style.cssText = `margin-bottom: 12px;`;
-    const originalLabel = document.createElement("div");
-    originalLabel.textContent = "Original:";
-    originalLabel.style.cssText = `font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #666;`;
-    const originalContent = document.createElement("div");
-    originalContent.textContent = originalText;
-    originalContent.style.cssText = `
-      background: #f5f5f5;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 14px;
-      max-height: 150px;
-      overflow-y: auto;
-    `;
-    originalSection.appendChild(originalLabel);
-    originalSection.appendChild(originalContent);
-
-    // Generated text
-    const generatedSection = document.createElement("div");
-    generatedSection.style.cssText = `margin-bottom: 16px;`;
-    const generatedLabel = document.createElement("div");
-    generatedLabel.textContent = "Generated:";
-    generatedLabel.style.cssText = `font-weight: 600; margin-bottom: 4px; font-size: 12px; color: #666;`;
-    const generatedContent = document.createElement("div");
-    generatedContent.textContent = generatedText;
-    generatedContent.style.cssText = `
-      background: #e8f5e9;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 14px;
-      max-height: 150px;
-      overflow-y: auto;
-    `;
-    generatedSection.appendChild(generatedLabel);
-    generatedSection.appendChild(generatedContent);
-
-    // Button container
-    const buttonContainer = document.createElement("div");
-    buttonContainer.style.cssText = `
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    `;
-
-    // Reject button
+    // Reject button (×)
     const rejectButton = document.createElement("button");
-    rejectButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg> Reject`;
+    rejectButton.innerHTML = "×";
+    rejectButton.title = "Reject";
     rejectButton.style.cssText = `
-      padding: 8px 16px;
+      padding: 2px 8px;
       border: 1px solid #e0e0e0;
       border-radius: 4px;
       background: white;
       cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #666;
     `;
-    rejectButton.onclick = () => this.removePromptOverlay();
+    rejectButton.onmouseover = () => rejectButton.style.background = "#f5f5f5";
+    rejectButton.onmouseout = () => rejectButton.style.background = "white";
+    rejectButton.onclick = () => this.rejectChange(previewSpan);
 
-    // Accept button
+    // Accept button (✓)
     const acceptButton = document.createElement("button");
-    acceptButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg> Accept`;
+    acceptButton.innerHTML = "✓";
+    acceptButton.title = "Accept";
     acceptButton.style.cssText = `
-      padding: 8px 16px;
-      border: none;
+      padding: 2px 8px;
+      border: 1px solid #4caf50;
       border-radius: 4px;
       background: #4caf50;
-      color: white;
       cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      color: white;
     `;
-    acceptButton.onclick = () => this.acceptChange(generatedText, range);
+    acceptButton.onmouseover = () => acceptButton.style.background = "#45a049";
+    acceptButton.onmouseout = () => acceptButton.style.background = "#4caf50";
+    acceptButton.onclick = () => this.acceptChange(previewSpan);
 
-    // Assemble overlay
-    buttonContainer.appendChild(rejectButton);
-    buttonContainer.appendChild(acceptButton);
-    this.promptOverlay.appendChild(originalSection);
-    this.promptOverlay.appendChild(generatedSection);
-    this.promptOverlay.appendChild(buttonContainer);
+    // Add buttons to container
+    this.controlsContainer.appendChild(rejectButton);
+    this.controlsContainer.appendChild(acceptButton);
 
-    document.body.appendChild(this.promptOverlay);
+    // Insert controls right after the preview span
+    if (previewSpan.parentNode) {
+      previewSpan.parentNode.insertBefore(this.controlsContainer, previewSpan.nextSibling);
+    }
+
+    // Make the preview span clickable to restore controls if they get hidden
+    // Use mousedown instead of onclick for contenteditable compatibility
+    previewSpan.style.cursor = "pointer";
+    previewSpan.style.userSelect = "none"; // Prevent text selection on click
+    previewSpan.contentEditable = "false"; // Make span non-editable to capture clicks
+
+    previewSpan.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.controlsContainer || !this.controlsContainer.parentNode) {
+        // Controls were removed, restore them
+        this.showAcceptRejectControls(previewSpan, range);
+      }
+    });
+
+    // Setup outside click handler to hide controls but keep highlight
+    this.setupOutsideClickHandler(previewSpan);
   }
 
-  private acceptChange(generatedText: string, range: Range): void {
-    // Replace the selected text with generated text
-    range.deleteContents();
-    const textNode = document.createTextNode(generatedText);
-    range.insertNode(textNode);
+  private setupOutsideClickHandler(previewSpan: HTMLSpanElement): void {
+    // Remove existing handler if any
+    if (this.outsideClickHandler) {
+      document.removeEventListener("click", this.outsideClickHandler);
+    }
+
+    // Create new handler
+    this.outsideClickHandler = (e: MouseEvent) => {
+      const target = e.target as Node;
+
+      // Check if click is outside both the preview span and controls
+      if (
+        this.previewSpan &&
+        this.controlsContainer &&
+        !this.previewSpan.contains(target) &&
+        !this.controlsContainer.contains(target)
+      ) {
+        // Hide controls but keep highlight and span
+        this.removeControls();
+      }
+    };
+
+    // Add listener with a small delay to avoid immediate triggering
+    setTimeout(() => {
+      if (this.outsideClickHandler) {
+        document.addEventListener("click", this.outsideClickHandler);
+      }
+    }, 100);
+  }
+
+  private acceptChange(previewSpan: HTMLSpanElement): void {
+    // Remove highlight and controls, keep the generated text
+    if (previewSpan && previewSpan.parentNode) {
+      const generatedText = previewSpan.textContent || "";
+      const parent = previewSpan.parentNode;
+
+      // Create text node and replace the span
+      const textNode = document.createTextNode(generatedText);
+      parent.replaceChild(textNode, previewSpan);
+
+      // Force a reflow to ensure DOM is updated
+      parent.normalize();
+
+      // Trigger EditorJS change detection for undo support
+      this.triggerEditorChange(parent);
+    }
 
     // Clean up
-    this.removePromptOverlay();
+    this.removeControls();
+    this.cleanupEventHandlers();
+    this.previewSpan = null;
   }
 
-  private removePromptOverlay(): void {
-    if (this.promptOverlay && this.promptOverlay.parentNode) {
-      this.promptOverlay.parentNode.removeChild(this.promptOverlay);
-      this.promptOverlay = null;
+  private rejectChange(previewSpan: HTMLSpanElement): void {
+    // Remove highlight and controls, restore original text
+    if (previewSpan && previewSpan.parentNode) {
+      const parent = previewSpan.parentNode;
+
+      // Create text node with original text and replace the span
+      const textNode = document.createTextNode(this.originalText);
+      parent.replaceChild(textNode, previewSpan);
+
+      // Force a reflow to ensure DOM is updated
+      parent.normalize();
+
+      // Trigger EditorJS change detection for undo support
+      this.triggerEditorChange(parent);
+    }
+
+    // Clean up
+    this.removeControls();
+    this.cleanupEventHandlers();
+    this.previewSpan = null;
+  }
+
+  private triggerEditorChange(node: Node): void {
+    // Dispatch input event to trigger EditorJS's change detection
+    const blockElement = (node as HTMLElement).closest('[contenteditable="true"]');
+    if (blockElement) {
+      const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+      blockElement.dispatchEvent(inputEvent);
+    }
+  }
+
+  private cleanupEventHandlers(): void {
+    // Remove outside click handler
+    if (this.outsideClickHandler) {
+      document.removeEventListener("click", this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
+  }
+
+  private removeControls(): void {
+    if (this.controlsContainer && this.controlsContainer.parentNode) {
+      this.controlsContainer.parentNode.removeChild(this.controlsContainer);
+      this.controlsContainer = null;
     }
   }
 
   clear(): void {
-    // Not needed for inline tool
+    this.removeControls();
+    this.cleanupEventHandlers();
+    if (this.actionsContainer && this.actionsContainer.parentNode) {
+      this.actionsContainer.parentNode.removeChild(this.actionsContainer);
+      this.actionsContainer = null;
+    }
   }
 }

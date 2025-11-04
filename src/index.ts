@@ -109,8 +109,17 @@ export default class AITextTool implements BlockTool {
     promptInput.contentEditable = this.readOnly ? "false" : "true";
     promptInput.style.flex = "1";
     promptInput.style.outline = "none";
+    promptInput.style.display = "inline";
     promptInput.textContent = this._data.prompt || "";
     promptInput.dataset.placeholder = this._promptPlaceholder;
+
+    // Create inline loading spinner (hidden by default)
+    const inlineLoader = document.createElement("span");
+    inlineLoader.style.cssText = `
+      display: none;
+      margin-left: 4px;
+    `;
+    inlineLoader.innerHTML = '<div class="' + this._CSS.loader + '"></div>';
 
     // Create the generate button (arrow)
     const generateButton = document.createElement("button");
@@ -118,16 +127,19 @@ export default class AITextTool implements BlockTool {
     generateButton.innerHTML = "→";
     generateButton.title = "Generate AI text";
 
-    // Event listener for generating text
-    generateButton.addEventListener("click", async () => {
+    // Function to handle generation
+    const handleGenerate = async () => {
       const prompt = promptInput.innerText;
 
-      // Show loading state
-      generateButton.disabled = true;
-      generateButton.innerHTML = '<div class="' + this._CSS.loader + '"></div>';
+      // Hide arrow button and show inline spinner next to text
+      generateButton.style.display = "none";
+      inlineLoader.style.display = "inline";
 
       // Pass the prompt input element for real-time streaming
       const generatedText = await this.generateText(prompt, promptInput);
+
+      // Hide inline spinner
+      inlineLoader.style.display = "none";
 
       // Save the final generated text and prompt
       if (generatedText) {
@@ -144,6 +156,19 @@ export default class AITextTool implements BlockTool {
         // Clear and replace container content
         container.innerHTML = "";
         container.appendChild(textDiv);
+      }
+    };
+
+    // Event listener for clicking arrow button
+    generateButton.addEventListener("click", handleGenerate);
+
+    // Allow Enter key to trigger generation
+    promptInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        if (promptInput.innerText.trim() !== "") {
+          handleGenerate();
+        }
       }
     });
 
@@ -163,6 +188,7 @@ export default class AITextTool implements BlockTool {
 
     // Assemble the container
     inputWrapper.appendChild(promptInput);
+    inputWrapper.appendChild(inlineLoader);
     inputWrapper.appendChild(generateButton);
     container.appendChild(inputWrapper);
 
@@ -212,7 +238,7 @@ export default class AITextTool implements BlockTool {
       const stream = await this._openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "You are a helpful assistant." },
+          { role: "system", content: "You are a helpful assistant. Provide responses in plain text without any markdown formatting (no asterisks, underscores, backticks, etc.)." },
           { role: "user", content: prompt },
         ],
         max_tokens: this._maxTokens,
