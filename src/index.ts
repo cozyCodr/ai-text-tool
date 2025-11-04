@@ -24,6 +24,9 @@ interface AITextParams {
   block: BlockAPI;
 }
 
+// Export both tools
+export { default as AITextInlineTool } from './inline';
+
 export default class AITextTool implements BlockTool {
   api: API;
   readOnly: boolean;
@@ -207,12 +210,12 @@ export default class AITextTool implements BlockTool {
       }
 
       const stream = await this._openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "You are a helpful assistant." },
           { role: "user", content: prompt },
         ],
-        max_completion_tokens: this._maxTokens,
+        max_tokens: this._maxTokens,
         stream: true,
       });
 
