@@ -1,12 +1,13 @@
 import type { API, BlockAPI, BlockTool, ToolConfig } from "@editorjs/editorjs";
 import './index.css';
 import OpenAI from "openai";
+import { getClientSideEnvVar } from "./envUtils";
 
 // Interface for configuration options
 export interface AITextConfig extends ToolConfig {
-  apiKey: string;       // OpenAI API Key
-  promptPlaceholder: string; // Placeholder for the input prompt
-  maxTokens: number;    // Max tokens for AI response
+  apiKey?: string;      // OpenAI API Key (optional, will auto-detect from env)
+  promptPlaceholder?: string; // Placeholder for the input prompt
+  maxTokens?: number;   // Max tokens for AI response
 }
 
 // Interface for data structure
@@ -52,9 +53,10 @@ export default class AITextTool implements BlockTool {
     this.api = api;
     this.readOnly = readOnly;
 
-    // Initialize configuration
+    // Initialize configuration with environment variable fallback
     this._promptPlaceholder = config?.promptPlaceholder || "Type your prompt...";
-    this._apiKey = config?.apiKey || "";
+    // Priority: config.apiKey > environment variables
+    this._apiKey = config?.apiKey || getClientSideEnvVar('OPENAI_API_KEY') || "";
     this._maxTokens = config?.maxTokens || 8000;
 
     // Initialize data

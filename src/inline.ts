@@ -1,8 +1,9 @@
 import type { API, InlineTool, SanitizerConfig } from "@editorjs/editorjs";
 import OpenAI from "openai";
+import { getClientSideEnvVar } from "./envUtils";
 
 export interface AITextInlineConfig {
-  apiKey: string;
+  apiKey?: string;      // OpenAI API Key (optional, will auto-detect from env)
   maxTokens?: number;
 }
 
@@ -36,7 +37,8 @@ export default class AITextInlineTool implements InlineTool {
 
   constructor({ api, config }: { api: API; config?: AITextInlineConfig }) {
     this.api = api;
-    this._apiKey = config?.apiKey || "";
+    // Priority: config.apiKey > environment variables
+    this._apiKey = config?.apiKey || getClientSideEnvVar('OPENAI_API_KEY') || "";
     this._maxTokens = config?.maxTokens || 8000;
 
     this._openai = new OpenAI({

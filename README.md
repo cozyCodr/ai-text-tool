@@ -10,6 +10,7 @@ An AI-powered text generation tool for **Editor.js** that provides both **block-
 - **Interactive Preview**: Review AI-generated changes before accepting them
 - **Intuitive UX**: Clean, minimal interface with visual feedback and loading states
 - **Keyboard Shortcuts**: Use Cmd/Ctrl+Enter to quickly submit prompts
+- **Auto-detect Environment Variables**: Automatically reads API keys from Next.js, Vite, and Create React App environment variables
 - **Customizable**: Configure API keys, placeholders, and behavior
 
 ## Installation
@@ -22,13 +23,53 @@ To install and use this tool in your Editor.js project, follow these steps:
 npm install ai-text-tool
 ```
 
-### 2. Import and Configure the Tool
+### 2. Set Up Your API Key
+
+The tool automatically detects your OpenAI API key from environment variables based on your framework:
+
+- **Next.js**: Add `NEXT_PUBLIC_OPENAI_API_KEY` to your `.env.local`
+- **Vite**: Add `VITE_OPENAI_API_KEY` to your `.env`
+- **Create React App**: Add `REACT_APP_OPENAI_API_KEY` to your `.env`
+- **Generic**: Use `OPENAI_API_KEY` or pass directly in config
+
+Example `.env.local` for Next.js:
+```bash
+NEXT_PUBLIC_OPENAI_API_KEY=sk-your-openai-api-key-here
+```
+
+### 3. Import and Configure the Tool
 
 The tool provides both a **block tool** and an **inline tool**. Import and configure both in your Editor.js setup:
 
+**Option A: Auto-detect API key from environment variables (recommended)**
+
 ```javascript
-import AITextTool from 'ai-text-tool';
-import 'ai-text-tool/index.css'; // Import styles
+import AITextTool, { AITextInlineTool } from 'ai-text-tool';
+
+const editor = new EditorJS({
+  holder: 'editorjs',
+  tools: {
+    // Block tool - API key auto-detected from environment
+    aiTextTool: {
+      class: AITextTool,
+      config: {
+        promptPlaceholder: 'Enter a prompt...',
+        generatedTextPlaceholder: 'Generated text will appear here...',
+      },
+    },
+    // Inline tool - API key auto-detected from environment
+    aiInlineTool: {
+      class: AITextInlineTool,
+      config: {},
+    },
+  },
+});
+```
+
+**Option B: Explicitly pass API key in config**
+
+```javascript
+import AITextTool, { AITextInlineTool } from 'ai-text-tool';
 
 const editor = new EditorJS({
   holder: 'editorjs',
@@ -37,16 +78,16 @@ const editor = new EditorJS({
     aiTextTool: {
       class: AITextTool,
       config: {
-        apiKey: 'your-openai-api-key', // Required: Your OpenAI API key
+        apiKey: 'your-openai-api-key', // Explicitly set API key
         promptPlaceholder: 'Enter a prompt...',
         generatedTextPlaceholder: 'Generated text will appear here...',
       },
     },
     // Inline tool for transforming selected text
     aiInlineTool: {
-      class: AITextTool.InlineTool,
+      class: AITextInlineTool,
       config: {
-        apiKey: 'your-openai-api-key', // Required: Your OpenAI API key
+        apiKey: 'your-openai-api-key', // Explicitly set API key
       },
     },
   },
@@ -71,9 +112,9 @@ The following configuration options are available for customization:
         <td>
           <code>apiKey</code>
         </td>
-        <td>The API key for accessing the AI service (e.g., OpenAI API)</td>
+        <td>The API key for accessing the AI service (e.g., OpenAI API). Optional if set via environment variables (NEXT_PUBLIC_OPENAI_API_KEY, VITE_OPENAI_API_KEY, REACT_APP_OPENAI_API_KEY, or OPENAI_API_KEY)</td>
         <td>
-          <code>''</code> (Required)
+          <code>Auto-detected from environment</code>
         </td>
       </tr>
       <tr>
@@ -182,10 +223,10 @@ import 'ai-text-tool/index.css';
 {
   class: AITextTool,
   config: {
-    apiKey: string,              // Required: OpenAI API key
-    promptPlaceholder: string,   // Optional: Prompt input placeholder
-    generatedTextPlaceholder: string, // Optional: Output area placeholder
-    readOnly: boolean           // Optional: Read-only mode (default: false)
+    apiKey?: string,             // Optional: OpenAI API key (auto-detected from env if not provided)
+    promptPlaceholder?: string,  // Optional: Prompt input placeholder
+    generatedTextPlaceholder?: string, // Optional: Output area placeholder
+    readOnly?: boolean          // Optional: Read-only mode (default: false)
   }
 }
 ```
@@ -194,9 +235,10 @@ import 'ai-text-tool/index.css';
 
 ```javascript
 {
-  class: AITextTool.InlineTool,
+  class: AITextInlineTool,
   config: {
-    apiKey: string  // Required: OpenAI API key
+    apiKey?: string,   // Optional: OpenAI API key (auto-detected from env if not provided)
+    maxTokens?: number // Optional: Maximum tokens for generation (default: 8000)
   }
 }
 ```
@@ -219,6 +261,11 @@ This project is licensed under the ISC License - see the LICENSE file for detail
 For issues, questions, or feature requests, please open an issue on the [GitHub repository](https://github.com/cozyCodr/ai-text-tool).
 
 ## Changelog
+
+### v1.2.0
+- **Environment Variable Auto-detection**: Automatically detects OpenAI API key from framework-specific environment variables (Next.js, Vite, Create React App)
+- Made `apiKey` config optional - can now omit it entirely if using environment variables
+- Added cross-framework compatibility for easier setup
 
 ### v1.1.0
 - Added inline tool for transforming selected text

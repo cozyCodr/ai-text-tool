@@ -1,7 +1,7 @@
 {
   "name": "ai-text-tool",
-  "version": "1.1.1",
-  "description": "An ai text generation tool for editorjs",
+  "version": "1.2.0",
+  "description": "An AI text generation tool for EditorJS with automatic environment variable detection",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
