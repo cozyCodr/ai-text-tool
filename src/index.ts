@@ -95,6 +95,11 @@ export default class AITextTool implements BlockTool {
       textDiv.style.outline = "none";
       textDiv.style.minHeight = "40px";
       textDiv.textContent = this._data.generatedText;
+
+      // Add class and attributes for EditorJS to recognize as editable content
+      textDiv.classList.add("ce-paragraph");
+      textDiv.setAttribute("data-placeholder", "");
+
       container.appendChild(textDiv);
       return container;
     }
@@ -148,16 +153,21 @@ export default class AITextTool implements BlockTool {
         this._data.generatedText = generatedText;
         this._data.prompt = prompt;
 
-        // Replace the entire container with normal text
-        const textDiv = document.createElement("div");
-        textDiv.contentEditable = this.readOnly ? "false" : "true";
-        textDiv.style.outline = "none";
-        textDiv.style.minHeight = "40px";
-        textDiv.textContent = generatedText;
+        // Convert this AI Text Tool block to a native paragraph block
+        // This ensures the inline toolbar works properly
+        const currentBlockIndex = this.api.blocks.getCurrentBlockIndex();
 
-        // Clear and replace container content
+        // Clear the container to prevent EditorJS from seeing old content during deletion
         container.innerHTML = "";
-        container.appendChild(textDiv);
+
+        // Use setTimeout to ensure EditorJS processes the clear before we delete/insert
+        setTimeout(() => {
+          // Delete the current AI Text Tool block first
+          this.api.blocks.delete(currentBlockIndex);
+
+          // Insert a new paragraph block with the generated text at the same position
+          this.api.blocks.insert('paragraph', { text: generatedText }, {}, currentBlockIndex, true);
+        }, 10);
       }
     };
 

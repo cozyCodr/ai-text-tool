@@ -10,8 +10,9 @@ An AI-powered text generation tool for **Editor.js** that provides both **block-
 - **Interactive Preview**: Review AI-generated changes before accepting them
 - **Intuitive UX**: Clean, minimal interface with visual feedback and loading states
 - **Keyboard Shortcuts**: Use Cmd/Ctrl+Enter to quickly submit prompts
-- **Auto-detect Environment Variables**: Automatically reads API keys from Next.js, Vite, and Create React App environment variables
-- **Customizable**: Configure API keys, placeholders, and behavior
+- **Multi-Framework Support**: Works with Next.js, Vite, Vue, Nuxt, SvelteKit, Angular, and more
+- **Flexible Configuration**: Easy API key setup from your app's environment
+- **Customizable**: Configure placeholders, max tokens, and behavior
 
 ## Installation
 
@@ -25,69 +26,226 @@ npm install ai-text-tool
 
 ### 2. Set Up Your API Key
 
-The tool automatically detects your OpenAI API key from environment variables based on your framework:
+Add your OpenAI API key to your environment configuration based on your framework:
 
-- **Next.js**: Add `NEXT_PUBLIC_OPENAI_API_KEY` to your `.env.local`
-- **Vite**: Add `VITE_OPENAI_API_KEY` to your `.env`
-- **Create React App**: Add `REACT_APP_OPENAI_API_KEY` to your `.env`
-- **Generic**: Use `OPENAI_API_KEY` or pass directly in config
+| Framework | Environment Variable | Config File |
+|-----------|---------------------|-------------|
+| **Next.js** | `NEXT_PUBLIC_OPENAI_API_KEY` | `.env.local` |
+| **Vite (React/Vue/Svelte)** | `VITE_OPENAI_API_KEY` | `.env` |
+| **Create React App** | `REACT_APP_OPENAI_API_KEY` | `.env` |
+| **Nuxt 3** | `VITE_OPENAI_API_KEY` or runtime config | `.env` / `nuxt.config.ts` |
+| **SvelteKit** | `PUBLIC_OPENAI_API_KEY` | `.env` |
+| **Angular** | N/A (use `environment.ts`) | `src/environments/environment.ts` |
 
-Example `.env.local` for Next.js:
+**Example for Next.js** (`.env.local`):
 ```bash
 NEXT_PUBLIC_OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
+**Example for Vite/Nuxt** (`.env`):
+```bash
+VITE_OPENAI_API_KEY=sk-your-openai-api-key-here
+```
+
+**Example for SvelteKit** (`.env`):
+```bash
+PUBLIC_OPENAI_API_KEY=sk-your-openai-api-key-here
+```
+
+**Example for Angular** (`src/environments/environment.ts`):
+```typescript
+export const environment = {
+  production: false,
+  openaiApiKey: 'sk-your-openai-api-key-here'
+};
+```
+
 ### 3. Import and Configure the Tool
 
-The tool provides both a **block tool** and an **inline tool**. Import and configure both in your Editor.js setup:
+The tool provides both a **block tool** and an **inline tool**. Import and configure both in your Editor.js setup.
 
-**Option A: Auto-detect API key from environment variables (recommended)**
+**IMPORTANT**: You must pass the API key explicitly from your app's environment to the tool's config.
+
+**Next.js Example (Recommended)**
 
 ```javascript
 import AITextTool, { AITextInlineTool } from 'ai-text-tool';
 
+// Get API key from Next.js environment
+const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+
 const editor = new EditorJS({
   holder: 'editorjs',
   tools: {
-    // Block tool - API key auto-detected from environment
     aiTextTool: {
       class: AITextTool,
       config: {
+        apiKey: apiKey, // Pass explicitly
         promptPlaceholder: 'Enter a prompt...',
         generatedTextPlaceholder: 'Generated text will appear here...',
       },
     },
-    // Inline tool - API key auto-detected from environment
     aiInlineTool: {
       class: AITextInlineTool,
-      config: {},
+      config: {
+        apiKey: apiKey, // Pass explicitly
+      },
     },
   },
 });
 ```
 
-**Option B: Explicitly pass API key in config**
+**Vite Example**
 
 ```javascript
 import AITextTool, { AITextInlineTool } from 'ai-text-tool';
 
+// Get API key from Vite environment
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
 const editor = new EditorJS({
   holder: 'editorjs',
   tools: {
-    // Block tool for generating new text blocks
     aiTextTool: {
       class: AITextTool,
       config: {
-        apiKey: 'your-openai-api-key', // Explicitly set API key
+        apiKey: apiKey,
         promptPlaceholder: 'Enter a prompt...',
         generatedTextPlaceholder: 'Generated text will appear here...',
       },
     },
-    // Inline tool for transforming selected text
     aiInlineTool: {
       class: AITextInlineTool,
       config: {
-        apiKey: 'your-openai-api-key', // Explicitly set API key
+        apiKey: apiKey,
+      },
+    },
+  },
+});
+```
+
+**Create React App Example**
+
+```javascript
+import AITextTool, { AITextInlineTool } from 'ai-text-tool';
+
+// Get API key from CRA environment
+const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+
+const editor = new EditorJS({
+  holder: 'editorjs',
+  tools: {
+    aiTextTool: {
+      class: AITextTool,
+      config: {
+        apiKey: apiKey,
+        promptPlaceholder: 'Enter a prompt...',
+        generatedTextPlaceholder: 'Generated text will appear here...',
+      },
+    },
+    aiInlineTool: {
+      class: AITextInlineTool,
+      config: {
+        apiKey: apiKey,
+      },
+    },
+  },
+});
+```
+
+**Nuxt 3 / Vue 3 Example**
+
+```javascript
+import AITextTool, { AITextInlineTool } from 'ai-text-tool';
+
+// Get API key from Nuxt runtime config
+// Add to nuxt.config.ts: runtimeConfig.public.openaiApiKey
+const config = useRuntimeConfig();
+const apiKey = config.public.openaiApiKey;
+
+// Or use Vite env vars in Nuxt
+// const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+const editor = new EditorJS({
+  holder: 'editorjs',
+  tools: {
+    aiTextTool: {
+      class: AITextTool,
+      config: {
+        apiKey: apiKey,
+        promptPlaceholder: 'Enter a prompt...',
+        generatedTextPlaceholder: 'Generated text will appear here...',
+      },
+    },
+    aiInlineTool: {
+      class: AITextInlineTool,
+      config: {
+        apiKey: apiKey,
+      },
+    },
+  },
+});
+```
+
+**SvelteKit Example**
+
+```javascript
+import AITextTool, { AITextInlineTool } from 'ai-text-tool';
+import { env } from '$env/dynamic/public';
+
+// Get API key from SvelteKit public env
+// Add PUBLIC_OPENAI_API_KEY to your .env file
+const apiKey = env.PUBLIC_OPENAI_API_KEY;
+
+// Or use static imports
+// import { PUBLIC_OPENAI_API_KEY } from '$env/static/public';
+
+const editor = new EditorJS({
+  holder: 'editorjs',
+  tools: {
+    aiTextTool: {
+      class: AITextTool,
+      config: {
+        apiKey: apiKey,
+        promptPlaceholder: 'Enter a prompt...',
+        generatedTextPlaceholder: 'Generated text will appear here...',
+      },
+    },
+    aiInlineTool: {
+      class: AITextInlineTool,
+      config: {
+        apiKey: apiKey,
+      },
+    },
+  },
+});
+```
+
+**Angular Example**
+
+```typescript
+import AITextTool, { AITextInlineTool } from 'ai-text-tool';
+import { environment } from './environments/environment';
+
+// Get API key from Angular environment
+// Add openaiApiKey to your environment.ts
+const apiKey = environment.openaiApiKey;
+
+const editor = new EditorJS({
+  holder: 'editorjs',
+  tools: {
+    aiTextTool: {
+      class: AITextTool,
+      config: {
+        apiKey: apiKey,
+        promptPlaceholder: 'Enter a prompt...',
+        generatedTextPlaceholder: 'Generated text will appear here...',
+      },
+    },
+    aiInlineTool: {
+      class: AITextInlineTool,
+      config: {
+        apiKey: apiKey,
       },
     },
   },
@@ -112,9 +270,9 @@ The following configuration options are available for customization:
         <td>
           <code>apiKey</code>
         </td>
-        <td>The API key for accessing the AI service (e.g., OpenAI API). Optional if set via environment variables (NEXT_PUBLIC_OPENAI_API_KEY, VITE_OPENAI_API_KEY, REACT_APP_OPENAI_API_KEY, or OPENAI_API_KEY)</td>
+        <td>The API key for accessing the AI service (e.g., OpenAI API). Must be passed explicitly from your app's environment variables (e.g., process.env.NEXT_PUBLIC_OPENAI_API_KEY)</td>
         <td>
-          <code>Auto-detected from environment</code>
+          <code>undefined (required)</code>
         </td>
       </tr>
       <tr>
